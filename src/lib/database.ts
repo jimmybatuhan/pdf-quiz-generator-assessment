@@ -10,14 +10,17 @@ import { createAssistant } from "./ai/assistant/assistant";
 export type Choices = "A" | "B" | "C" | "D";
 
 export type Question = {
+  type: "free_text" | "multiple_choice";
   question: string;
-  options: {
+  options?: {
     A: string;
     B: string;
     C: string;
     D: string;
   };
   answer: Choices;
+  userAnswer: string | null;
+  isCorrect: boolean;
   explanation: string;
 };
 
@@ -25,15 +28,17 @@ export type UploadedFile = {
   id: string;
   vectorId: string;
   name: string;
+  path: string;
 };
 
 export type DatabaseObject = {
   assistant: string | null;
   questionnaires: {
     [k: string]: {
+      threadId: string;
       completed: boolean;
       result: { score: number };
-      questions?: Array<Question>;
+      questions: Array<Question>;
       file: UploadedFile;
     };
   };
@@ -103,20 +108,10 @@ class DbObj {
       writeFileSync(dbPath, JSON.stringify(this.data));
 
       return this.data.assistant;
-    } catch {
+    } catch (e) {
+      console.log(e);
       throw new Error("Failed to fetch or create assistant");
     }
-  }
-
-  async addFile(file: UploadedFile) {
-    this.data.questionnaires[file.id] = {
-      questions: [],
-      file,
-      completed: false,
-      result: { score: 0 },
-    };
-
-    writeFileSync(this._dbPath, JSON.stringify(this.data));
   }
 
   /**
@@ -125,18 +120,36 @@ class DbObj {
    * @param questions
    * @returns
    */
-  async addQuestionsToFile(fileId: string, questions: Array<Question>) {
-    this.data.questionnaires[fileId].questions = questions;
+  async addQuestionsToFile(
+    threadId: string,
+    file: UploadedFile,
+    questions: Array<Question>
+  ) {
+    this.data.questionnaires[file.id] = {
+      threadId,
+      questions: questions.map((q) => ({
+        ...q,
+        userAnswer: null,
+        isCorrect: false,
+      })),
+      file,
+      completed: false,
+      result: { score: 0 },
+    };
 
-    writeFileSync(this._dbPath, JSON.stringify(this.data));
+    this.saveData();
 
-    return this.data.questionnaires[fileId];
+    return this.data.questionnaires[file.id];
   }
 
   saveScore(fileId: string, score: number) {
     this.data.questionnaires[fileId].completed = true;
     this.data.questionnaires[fileId].result.score = score;
 
+    this.saveData();
+  }
+
+  saveData() {
     writeFileSync(this._dbPath, JSON.stringify(this.data));
   }
 }

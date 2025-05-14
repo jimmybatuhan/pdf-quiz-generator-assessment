@@ -3,9 +3,32 @@
 import database, { Question } from "@/lib/database";
 import { openAiClient } from "../client";
 
-export async function generateQuestions(fileId: string) {
+export async function verifyAnswer(
+  threadId: string,
+  question: string,
+  answer: string
+) {
+  const content = `Based on the PDF document attached and this question,
+\`\`\`${question}\`\`\` check if this answer is correct \`\`\`${answer}\`\`\` ,
+make sure to only return the json markup using the \`free_text_result.json\` format.`;
+
+  await openAiClient.beta.threads.messages.create(threadId, {
+    role: "user",
+    content,
+  });
+
+  const [, result] = await run(threadId);
+
+  return result as {
+    question: string;
+    user_answer: string;
+    correct: boolean;
+    correct_answer: string;
+  };
+}
+
+export async function generateQuestions(vectorStorageId: string) {
   const assistantId = database.data.assistant;
-  const file = database.data.questionnaires[fileId];
 
   if (!assistantId) {
     throw new Error("Assistant is not set.");
@@ -15,7 +38,7 @@ export async function generateQuestions(fileId: string) {
   const thread = await openAiClient.beta.threads.create({
     tool_resources: {
       file_search: {
-        vector_store_ids: [file.file.vectorId],
+        vector_store_ids: [vectorStorageId],
       },
     },
   });
@@ -23,42 +46,44 @@ export async function generateQuestions(fileId: string) {
   // Add the message to the thread with the file ID
   await openAiClient.beta.threads.messages.create(thread.id, {
     role: "user",
-    content: `Create 5 multiple choices questions with answers and explanation
-    in json format using the attached file in the thread. just print the json and make the options in the
-    questions have a property of A, B, C, etc..`,
+    content: `generate 5 questions based on the PDF file attached, make sure to only return the json markup`,
   });
 
+  return await run<Array<Question>>(thread.id);
+}
+
+async function run<T>(threadId: string) {
+  const assistantId = database.getAssistant()!;
+
   // Run the assistant
-  const run = await openAiClient.beta.threads.runs.create(thread.id, {
+  const run = await openAiClient.beta.threads.runs.create(threadId, {
     assistant_id: assistantId,
     response_format: { type: "text" },
   });
 
   let runStatus = await openAiClient.beta.threads.runs.retrieve(
-    thread.id,
+    threadId,
     run.id
   );
 
   while (runStatus.status !== "completed") {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    runStatus = await openAiClient.beta.threads.runs.retrieve(
-      thread.id,
-      run.id
-    );
+    runStatus = await openAiClient.beta.threads.runs.retrieve(threadId, run.id);
 
     if (["failed", "cancelled", "expired"].includes(runStatus.status)) {
       break;
     }
   }
 
-  // Get the last message from the assistant
-  const messages = await openAiClient.beta.threads.messages.list(thread.id);
-  const content = messages.data[0].content[0] as { text: { value: string } };
+  const messages = await openAiClient.beta.threads.messages.list(threadId);
 
-  await openAiClient.beta.threads.del(thread.id);
-
-  return JSON.parse(
-    content.text.value.replace(/```json\s*|```/g, "")
-  ) as Array<Question>;
+  return [
+    threadId,
+    JSON.parse(
+      (
+        messages.data[0].content[0] as { text: { value: string } }
+      ).text.value.replace(/```json\s*|```/g, "")
+    ) as T,
+  ] as [string, T];
 }

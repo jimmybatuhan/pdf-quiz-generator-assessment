@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
 import { Button } from "../ui/button";
+import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
-import { uploadPDF } from "@/actions/upload";
-import { Card, CardContent, CardTitle } from "../ui/card";
 import { Loader2 } from "lucide-react";
+import { uploadPDF } from "@/actions/upload";
+import { useActionState } from "react";
 
 export default function UploadForm() {
   const [state, action, isLoading] = useActionState(uploadPDF, {
@@ -19,7 +19,6 @@ export default function UploadForm() {
         <form action={action}>
           <div className="grid gap-3">
             <div className="grid gap-1">
-              <CardTitle>Upload file</CardTitle>
               <Input disabled={isLoading} name="file" type="file" />
               {state.message && (
                 <p
@@ -32,8 +31,14 @@ export default function UploadForm() {
               )}
             </div>
             <Button disabled={isLoading} type="submit">
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Upload
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>Upload PDF</>
+              )}
             </Button>
           </div>
         </form>

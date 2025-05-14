@@ -3,6 +3,8 @@
 import { FilePurpose } from "openai/src/resources.js";
 import { openAiClient } from "../client";
 import { UploadedFile } from "@/lib/database";
+import path from "path";
+import { writeFileSync } from "fs";
 
 /**
  * Uploads the file to OpenAI and creates a vector store
@@ -25,9 +27,15 @@ export async function uploadFile(
     file_ids: [uploadedFile.id],
   });
 
+  writeFileSync(
+    path.join(process.cwd(), "public", "uploads", file.name),
+    Buffer.from(await file.arrayBuffer())
+  );
+
   return {
     name: file.name,
     id: uploadedFile.id,
     vectorId: vector.id,
+    path: `/uploads/${file.name}`,
   } as UploadedFile;
 }

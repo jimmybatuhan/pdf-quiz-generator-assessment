@@ -9,6 +9,7 @@ import { generateQuestions } from "@/lib/ai/assistant/thread";
 import path from "path";
 import database from "@/lib/database";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 const workerPath = path.resolve(
   process.cwd(),
@@ -30,6 +31,10 @@ export async function uploadPDF(
     return { success: false, message: "File is required." };
   }
 
+  if (file?.type !== "application/pdf") {
+    return { success: false, message: "File must be a PDF." };
+  }
+
   if (file.size > Number(process.env.PDF_MAXIMUM_SIZE_BYTES)) {
     return { success: false, message: "File is too large." };
   }
@@ -49,20 +54,21 @@ export async function uploadPDF(
     };
   }
 
-  const uploadedFile = await uploadFile(file);
-
-  database.addFile(uploadedFile);
-
-  const questions = await generateQuestions(uploadedFile.id);
-
-  database.addQuestionsToFile(uploadedFile.id, questions);
-
   try {
+    /** upload the pdf file to OpenAI */
+    const uploadedFile = await uploadFile(file);
+
+    /** starts a thread and sends a query that will generate questions */
+    const [threadId, questions] = await generateQuestions(
+      uploadedFile.vectorId
+    );
+
+    database.addQuestionsToFile(threadId, uploadedFile, questions);
+
     revalidatePath("/");
 
     return { message: "File uploaded successfully.", success: true };
-  } catch (error) {
-    console.error("Error uploading file:", error);
+  } catch {
     return { success: false, message: "Failed to upload file." };
   }
 }

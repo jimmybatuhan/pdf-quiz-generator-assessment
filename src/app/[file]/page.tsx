@@ -18,6 +18,8 @@ export default async function Page({
     <div className="flex-1">
       {questionnaire && questionnaire.questions && (
         <Questionnaire
+          score={questionnaire.result.score}
+          isCompleted={questionnaire.completed}
           questions={questionnaire.questions}
           file={questionnaire.file}
         />

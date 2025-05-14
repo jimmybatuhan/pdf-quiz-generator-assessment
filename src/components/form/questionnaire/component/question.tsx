@@ -1,26 +1,35 @@
 "use client";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Choices, Question as QuestionType } from "@/lib/database";
+import { cn } from "@/lib/utils";
+import { Check, X } from "lucide-react";
 import { useMemo } from "react";
 
 type Props = QuestionType & {
-  showAnswer?: boolean;
+  isCompleted?: boolean;
   questionIndex: number;
   fileId: string;
+  isLoading: boolean;
+  userAnswer: string | null;
+  isCorrect: boolean;
 };
 
 export default function Question({
   question,
   options,
   answer,
-  explanation,
+  userAnswer,
+  isCorrect,
   questionIndex,
   fileId,
-  showAnswer = false,
+  type,
+  isLoading,
+  isCompleted = false,
 }: Props) {
   const normalizedQuestionIndex = useMemo(
     () => questionIndex + 1,
@@ -31,35 +40,82 @@ export default function Question({
     <Card className="gap-4">
       <CardHeader>
         <CardTitle>
-          Q{normalizedQuestionIndex}:{" "}
-          {question.replace(/|[\[【(][^\]】)]+[\]】)]/g, "")}
+          Q{normalizedQuestionIndex}: {question}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4">
-          <RadioGroup name={`${fileId}:${questionIndex}`}>
-            {Object.keys(options).map((choice, i) => (
-              <div key={i} className="flex items-center space-x-2">
-                <RadioGroupItem
-                  value={choice}
-                  id={`${fileId}:${questionIndex}:${i}`}
+          {type === "multiple_choice" && options && (
+            <RadioGroup
+              disabled={isLoading || isCompleted}
+              name={`${fileId}:${questionIndex}`}
+              defaultValue={userAnswer ? userAnswer : undefined}
+            >
+              {Object.keys(options).map((choice, i) => {
+                const isCorrectAnswer = answer === choice;
+                const isUserAnswer = choice === userAnswer;
+
+                return (
+                  <div key={i} className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      value={choice}
+                      id={`${fileId}:${questionIndex}:${i}`}
+                    />
+                    <Label
+                      htmlFor={`${fileId}:${questionIndex}:${i}`}
+                      className={
+                        isCompleted && (isCorrectAnswer || isUserAnswer)
+                          ? cn(
+                              isCorrect || isCorrectAnswer
+                                ? "text-green-700"
+                                : "text-red-700"
+                            )
+                          : ""
+                      }
+                    >
+                      {options[choice as Choices]}
+                      {isCompleted && (isCorrectAnswer || isUserAnswer) ? (
+                        isCorrect || isCorrectAnswer ? (
+                          <Check size={14} />
+                        ) : (
+                          <X size={14} />
+                        )
+                      ) : (
+                        <></>
+                      )}
+                    </Label>
+                  </div>
+                );
+              })}
+            </RadioGroup>
+          )}
+          {type === "free_text" && (
+            <>
+              <div className="grid gap-1">
+                <Input
+                  defaultValue={userAnswer ? userAnswer : undefined}
+                  disabled={isLoading || isCompleted}
+                  name={`${fileId}:${questionIndex}`}
                 />
-                <Label htmlFor={`${fileId}:${questionIndex}:${i}`}>
-                  {options[choice as Choices]}
+                <Label
+                  className={cn(
+                    "font-normal",
+                    isCorrect ? "text-green-700" : "text-red-700"
+                  )}
+                >
+                  {isCompleted && (
+                    <>Your answer is {isCorrect ? "correct" : "incorrect"}</>
+                  )}
                 </Label>
               </div>
-            ))}
-          </RadioGroup>
-          {showAnswer && (
-            <Alert className="py-2">
-              <AlertTitle>Explanation</AlertTitle>
-              <AlertDescription className="grid gap-5">
-                <Label className="text-xs font-normal">{explanation}</Label>
-                <Label className="text-accent-foreground">
-                  Correct answer: {answer}
-                </Label>
-              </AlertDescription>
-            </Alert>
+              {isCompleted && (
+                <Alert>
+                  <AlertDescription className="text-xs text-black font-normal">
+                    {answer}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
           )}
         </div>
       </CardContent>
