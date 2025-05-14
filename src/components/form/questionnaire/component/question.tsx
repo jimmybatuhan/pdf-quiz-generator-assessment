@@ -53,7 +53,9 @@ export default function Question({
             >
               {Object.keys(options).map((choice, i) => {
                 const isCorrectAnswer = answer === choice;
-                const isUserAnswer = choice === userAnswer;
+                const _correct = isCorrect || isCorrectAnswer;
+                const isUserOrCorrectAnswer =
+                  choice === userAnswer || answer === choice;
 
                 return (
                   <div key={i} className="flex items-center space-x-2">
@@ -64,18 +66,14 @@ export default function Question({
                     <Label
                       htmlFor={`${fileId}:${questionIndex}:${i}`}
                       className={
-                        isCompleted && (isCorrectAnswer || isUserAnswer)
-                          ? cn(
-                              isCorrect || isCorrectAnswer
-                                ? "text-green-700"
-                                : "text-red-700"
-                            )
+                        isCompleted && isUserOrCorrectAnswer
+                          ? cn(_correct ? "text-green-700" : "text-red-700")
                           : ""
                       }
                     >
                       {options[choice as Choices]}
-                      {isCompleted && (isCorrectAnswer || isUserAnswer) ? (
-                        isCorrect || isCorrectAnswer ? (
+                      {isCompleted && isUserOrCorrectAnswer ? (
+                        _correct ? (
                           <Check size={14} />
                         ) : (
                           <X size={14} />
