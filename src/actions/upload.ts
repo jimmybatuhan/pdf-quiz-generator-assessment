@@ -9,7 +9,6 @@ import { generateQuestions } from "@/lib/ai/assistant/thread";
 import path from "path";
 import database from "@/lib/database";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 const workerPath = path.resolve(
   process.cwd(),
